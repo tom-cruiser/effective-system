@@ -1,4 +1,4 @@
-# Local development stack: PostgreSQL 16 + the ledger API.
+# Local development stack: PostgreSQL 16, the ledger API and the Angular web client.
 # Every value below is a local-only default and can be overridden from the environment or a .env file.
 services:
   db:
@@ -31,6 +31,13 @@ services:
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-insecure-jwt-secret-change-me}
     ports:
       - "${APP_PORT:-8080}:8080"
+
+  web:
+    build: ./frontend
+    depends_on:
+      - app
+    ports:
+      - "${WEB_PORT:-4200}:80"
 
 volumes:
   ledger-db:

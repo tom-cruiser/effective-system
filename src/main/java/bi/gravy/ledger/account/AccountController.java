@@ -3,10 +3,12 @@ package bi.gravy.ledger.account;
 import bi.gravy.ledger.account.dto.AccountResponse;
 import bi.gravy.ledger.account.dto.CreateAccountRequest;
 import bi.gravy.ledger.security.AccessGuard;
+import bi.gravy.ledger.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,6 +37,15 @@ public class AccountController {
     Account account = accountService.create(request, accessGuard.resolveOwner(request.ownerId()));
     return ResponseEntity.created(URI.create("/api/v1/accounts/" + account.getId()))
         .body(AccountResponse.from(account));
+  }
+
+  /** Always the caller's own accounts, so it needs no ownership check (admins own none). */
+  @GetMapping
+  @Operation(summary = "List the caller's own wallets, oldest first")
+  public List<AccountResponse> mine() {
+    return accountService.ownedBy(CurrentUser.get().id()).stream()
+        .map(AccountResponse::from)
+        .toList();
   }
 
   @GetMapping("/{id}")

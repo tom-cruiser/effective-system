@@ -1,6 +1,7 @@
 package bi.gravy.ledger.account;
 
 import jakarta.persistence.LockModeType;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,4 +26,6 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
         and a.name = :name and a.currency = :currency
       """)
   Optional<UUID> findSystemAccountId(String name, String currency);
+
+  List<Account> findByOwnerIdOrderByCreatedAtAsc(UUID ownerId);
 }

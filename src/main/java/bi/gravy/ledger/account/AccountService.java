@@ -2,6 +2,7 @@ package bi.gravy.ledger.account;
 
 import bi.gravy.ledger.account.dto.CreateAccountRequest;
 import bi.gravy.ledger.common.errors.LedgerException;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,11 @@ public class AccountService {
   @Transactional(readOnly = true)
   public Account get(UUID id) {
     return accounts.findById(id).orElseThrow(() -> LedgerException.accountNotFound(id));
+  }
+
+  @Transactional(readOnly = true)
+  public List<Account> ownedBy(UUID ownerId) {
+    return accounts.findByOwnerIdOrderByCreatedAtAsc(ownerId);
   }
 
   @Transactional(readOnly = true)

@@ -1,13 +1,16 @@
 package bi.gravy.ledger.account;
 
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import bi.gravy.ledger.security.Role;
 import bi.gravy.ledger.support.IntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -117,5 +120,29 @@ class AccountApiIT extends IntegrationTest {
     mvc.perform(get("/api/v1/accounts/not-a-uuid"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+  }
+
+  @Test
+  void listsOnlyTheCallersOwnWalletsOldestFirst() throws Exception {
+    UUID rider = UUID.randomUUID();
+    String token = bearer(rider, Role.USER);
+    for (String name : new String[] {"first", "second"}) {
+      mvc.perform(
+              post("/api/v1/accounts")
+                  .header("Authorization", token)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(
+                      """
+                      {"name": "%s", "type": "USER_WALLET", "currency": "KES"}
+                      """
+                          .formatted(name)))
+          .andExpect(status().isCreated());
+    }
+    createWallet("USER_WALLET", "KES"); // someone else's
+
+    mvc.perform(get("/api/v1/accounts").header("Authorization", token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].name", contains("first", "second")))
+        .andExpect(jsonPath("$[*].ownerId", contains(rider.toString(), rider.toString())));
   }
 }
