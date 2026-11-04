@@ -8,6 +8,9 @@ import org.springframework.http.HttpStatus;
  */
 public enum ErrorCode {
   VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "Validation failed"),
+  UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "Authentication required"),
+  INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Invalid credentials"),
+  ACCESS_DENIED(HttpStatus.FORBIDDEN, "Access denied"),
   ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "Account not found"),
   TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "Transaction not found"),
   IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "Idempotency key reused with a different request"),

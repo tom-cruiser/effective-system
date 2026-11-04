@@ -1,5 +1,6 @@
 package bi.gravy.ledger.statement;
 
+import bi.gravy.ledger.security.AccessGuard;
 import bi.gravy.ledger.statement.dto.StatementResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,9 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class StatementController {
 
   private final StatementService statementService;
+  private final AccessGuard accessGuard;
 
-  public StatementController(StatementService statementService) {
+  public StatementController(StatementService statementService, AccessGuard accessGuard) {
     this.statementService = statementService;
+    this.accessGuard = accessGuard;
   }
 
   @GetMapping("/{id}/statement")
@@ -44,6 +47,7 @@ public class StatementController {
           @RequestParam(required = false)
           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
           Instant to) {
+    accessGuard.requireAccountAccess(id);
     return StatementResponse.from(statementService.statement(id, from, to, page, size));
   }
 }

@@ -1,6 +1,7 @@
 package bi.gravy.ledger.transaction;
 
 import bi.gravy.ledger.common.idempotency.IdempotencyKeys;
+import bi.gravy.ledger.security.AccessGuard;
 import bi.gravy.ledger.transaction.dto.PayoutRequest;
 import bi.gravy.ledger.transaction.dto.ReversalRequest;
 import bi.gravy.ledger.transaction.dto.RidePaymentRequest;
@@ -32,9 +33,11 @@ public class TransactionController {
           + " key and body returns the original transaction with 200 instead of 201.";
 
   private final TransactionService transactionService;
+  private final AccessGuard accessGuard;
 
-  public TransactionController(TransactionService transactionService) {
+  public TransactionController(TransactionService transactionService, AccessGuard accessGuard) {
     this.transactionService = transactionService;
+    this.accessGuard = accessGuard;
   }
 
   @PostMapping("/top-ups")
@@ -43,6 +46,7 @@ public class TransactionController {
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
           String idempotencyKey,
       @Valid @RequestBody TopUpRequest request) {
+    accessGuard.requireAccountAccess(request.accountId());
     return respond(transactionService.topUp(request, IdempotencyKeys.requireValid(idempotencyKey)));
   }
 
@@ -52,6 +56,8 @@ public class TransactionController {
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
           String idempotencyKey,
       @Valid @RequestBody TransferRequest request) {
+    // Only the sender's account must be the caller's; anyone can receive money.
+    accessGuard.requireAccountAccess(request.fromAccountId());
     return respond(
         transactionService.transfer(request, IdempotencyKeys.requireValid(idempotencyKey)));
   }
@@ -67,6 +73,7 @@ public class TransactionController {
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
           String idempotencyKey,
       @Valid @RequestBody RidePaymentRequest request) {
+    accessGuard.requireAccountAccess(request.riderAccountId());
     return respond(
         transactionService.ridePayment(request, IdempotencyKeys.requireValid(idempotencyKey)));
   }
@@ -77,13 +84,14 @@ public class TransactionController {
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
           String idempotencyKey,
       @Valid @RequestBody PayoutRequest request) {
+    accessGuard.requireAccountAccess(request.driverAccountId());
     return respond(
         transactionService.payout(request, IdempotencyKeys.requireValid(idempotencyKey)));
   }
 
   @PostMapping("/{id}/reversal")
   @Operation(
-      summary = "Reverse a transaction",
+      summary = "Reverse a transaction (ADMIN only)",
       description = "Posts the exact opposite entries. A transaction can be reversed only once.")
   public ResponseEntity<TransactionResponse> reverse(
       @PathVariable UUID id,
@@ -97,7 +105,10 @@ public class TransactionController {
   @GetMapping("/{id}")
   @Operation(summary = "Get a transaction and its postings")
   public TransactionResponse get(@PathVariable UUID id) {
-    return TransactionResponse.from(transactionService.get(id));
+    PostedTransaction posted = transactionService.get(id);
+    accessGuard.requireAnyAccountAccess(
+        posted.postings().stream().map(Posting::getAccountId).toList());
+    return TransactionResponse.from(posted);
   }
 
   /** 201 with a Location for a new transaction; 200 for an idempotent replay of an old one. */

@@ -1,26 +1,38 @@
 package bi.gravy.ledger.support;
 
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import bi.gravy.ledger.TestcontainersConfiguration;
+import bi.gravy.ledger.security.Role;
+import bi.gravy.ledger.security.TokenService;
 import com.jayway.jsonpath.JsonPath;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 /**
  * Base class for tests that run the whole application against a real PostgreSQL.
  *
  * <p>Postings are immutable even for tests (the trigger forbids DELETE and TRUNCATE), so tests
  * never clean up: each one creates fresh wallets and only asserts on those.
+ *
+ * <p>{@link #mvc} sends every request as the seeded ADMIN unless the test sets its own {@code
+ * Authorization} header, so business tests are not cluttered with auth. Security behaviour is
+ * tested explicitly in {@code SecurityIT}, using {@link #anonymousMvc} and {@link #bearer}.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -28,8 +40,33 @@ import org.springframework.test.web.servlet.ResultActions;
 @ActiveProfiles("test")
 public abstract class IntegrationTest {
 
-  @Autowired protected MockMvc mvc;
+  /** The seeded demo admin (V3__users.sql). */
+  protected static final UUID ADMIN_ID = UUID.fromString("b7d4c1a0-5e3f-4c2a-9d1e-1a2b3c4d5e02");
+
+  /** Spring's auto-configured MockMvc: security filters on, no credentials. */
+  @Autowired protected MockMvc anonymousMvc;
+
   @Autowired protected JdbcTemplate jdbc;
+  @Autowired protected TokenService tokenService;
+  @Autowired private WebApplicationContext context;
+
+  /** Same application, but every request defaults to the admin's bearer token. */
+  protected MockMvc mvc;
+
+  @BeforeEach
+  void authenticateAsAdminByDefault() {
+    mvc =
+        MockMvcBuilders.webAppContextSetup(context)
+            .apply(springSecurity())
+            .defaultRequest(
+                get("/").header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_ID, Role.ADMIN)))
+            .build();
+  }
+
+  /** An {@code Authorization} header value for any user id, signed with the app's real key. */
+  protected String bearer(UUID userId, Role role) {
+    return "Bearer " + tokenService.issue(userId, userId + "@test.local", role).value();
+  }
 
   protected UUID createWallet(String type, String currency) throws Exception {
     String body =

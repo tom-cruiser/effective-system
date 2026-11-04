@@ -19,7 +19,7 @@ public class ReconciliationController {
 
   @GetMapping("/reconciliation")
   @Operation(
-      summary = "Check the ledger's integrity",
+      summary = "Check the ledger's integrity (ADMIN only)",
       description =
           "Verifies that debits equal credits per currency and per transaction, and that every"
               + " cached balance equals the balance derived from postings.")

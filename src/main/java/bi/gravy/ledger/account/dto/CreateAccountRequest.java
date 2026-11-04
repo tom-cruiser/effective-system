@@ -10,7 +10,11 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 public record CreateAccountRequest(
-    @NotNull @Schema(example = "8d0f8e4c-3b9a-4a51-9f7e-2a6f3f1c9b10") UUID ownerId,
+    @Schema(
+            description =
+                "Defaults to the caller. Only an ADMIN may open a wallet for someone else.",
+            example = "8d0f8e4c-3b9a-4a51-9f7e-2a6f3f1c9b10")
+        UUID ownerId,
     @NotBlank @Size(max = 100) @Schema(example = "Alice's wallet") String name,
     @NotNull
         @Schema(

@@ -43,3 +43,10 @@ springdoc:
 ledger:
   # Platform commission on ride payments, in basis points (1 bp = 0.01%). 1500 = 15%.
   platform-fee-bps: ${LEDGER_PLATFORM_FEE_BPS:1500}
+  security:
+    jwt:
+      # Deliberately no default: the app refuses to start without JWT_SECRET (at least 32 bytes).
+      # docker-compose.yml supplies a local-only value; real deployments inject their own.
+      secret: ${JWT_SECRET}
+      issuer: wallet-ledger-api
+      token-ttl: ${JWT_TOKEN_TTL:1h}

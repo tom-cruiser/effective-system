@@ -81,13 +81,12 @@ class AccountApiIT extends IntegrationTest {
             "/api/v1/accounts",
             null,
             """
-            {"name": " ", "type": "USER_WALLET", "currency": "EUR"}
+            {"name": " ", "type": null, "currency": "EUR"}
             """)
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-        .andExpect(
-            jsonPath("$.errors[*].field", containsInAnyOrder("ownerId", "name", "currency")));
+        .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("type", "name", "currency")));
   }
 
   @Test

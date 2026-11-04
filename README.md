@@ -13,7 +13,7 @@ journal entry.
 
 ## Quick start
 
-Requirements: Docker (and a JDK 21 if you want to run the build outside Docker).
+Requirements: Docker. Building and testing with `./mvnw` also needs a JDK 21.
 
 ```bash
 docker compose up --build
@@ -21,6 +21,25 @@ docker compose up --build
 
 - Health: <http://localhost:8080/actuator/health>
 - Swagger UI: <http://localhost:8080/swagger-ui.html>
+
+### Demo users
+
+> ⚠️ **Demo only.** These accounts are seeded by `V3__users.sql` and their passwords are public.
+
+| Email | Password | Role |
+|---|---|---|
+| `rider@demo.local` | `rider-demo-123` | USER: can read and move money only from wallets it owns |
+| `admin@demo.local` | `admin-demo-123` | ADMIN: every account, plus reversals and reconciliation |
+
+```bash
+curl -s -X POST localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"rider@demo.local","password":"rider-demo-123"}'
+```
+
+Send the returned `accessToken` as `Authorization: Bearer <token>` (or use **Authorize** in Swagger UI).
+
+JWTs are signed with HS256 using the `JWT_SECRET` environment variable (at least 32 bytes).
+The application refuses to start without it; `docker-compose.yml` supplies a local-only value.
 
 If ports 8080 or 5432 are already taken on your machine:
 

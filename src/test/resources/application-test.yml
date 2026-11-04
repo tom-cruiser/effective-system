@@ -3,3 +3,9 @@ logging:
   level:
     org.testcontainers: INFO
     bi.gravy.ledger: DEBUG
+
+ledger:
+  security:
+    jwt:
+      # Test-only signing key, used solely against a throwaway Testcontainers database.
+      secret: test-only-signing-key-not-used-anywhere-else-0123456789

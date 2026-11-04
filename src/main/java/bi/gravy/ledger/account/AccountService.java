@@ -17,13 +17,12 @@ public class AccountService {
 
   /** Only wallets can be created through the API; system accounts come from migrations. */
   @Transactional
-  public Account create(CreateAccountRequest request) {
+  public Account create(CreateAccountRequest request, UUID ownerId) {
     if (!request.type().isWallet()) {
       throw LedgerException.validation(
           "Only USER_WALLET and DRIVER_WALLET accounts can be created");
     }
-    return accounts.save(
-        new Account(request.ownerId(), request.name(), request.type(), request.currency()));
+    return accounts.save(new Account(ownerId, request.name(), request.type(), request.currency()));
   }
 
   @Transactional(readOnly = true)
