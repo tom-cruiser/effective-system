@@ -75,6 +75,42 @@ public abstract class IntegrationTest {
             .formatted(from, to, amountMinor, currency));
   }
 
+  protected ResultActions ridePayment(UUID rider, UUID driver, long fareMinor, String currency)
+      throws Exception {
+    return postJson(
+        "/api/v1/transactions/ride-payments",
+        newKey(),
+        """
+        {"riderAccountId": "%s", "driverAccountId": "%s", "fareMinor": %d, "currency": "%s",
+         "rideId": "ride-%s"}
+        """
+            .formatted(rider, driver, fareMinor, currency, UUID.randomUUID()));
+  }
+
+  protected ResultActions payout(UUID driver, long amountMinor, String currency) throws Exception {
+    return postJson(
+        "/api/v1/transactions/payouts",
+        newKey(),
+        """
+        {"driverAccountId": "%s", "amountMinor": %d, "currency": "%s"}
+        """
+            .formatted(driver, amountMinor, currency));
+  }
+
+  protected ResultActions reverse(String transactionId) throws Exception {
+    return postJson(
+        "/api/v1/transactions/" + transactionId + "/reversal",
+        newKey(),
+        """
+        {"reason": "test"}
+        """);
+  }
+
+  /** The {@code id} field of a JSON response. */
+  protected static String idOf(ResultActions result) throws Exception {
+    return JsonPath.read(result.andReturn().getResponse().getContentAsString(), "$.id");
+  }
+
   protected ResultActions postJson(String path, String idempotencyKey, String json)
       throws Exception {
     var request = post(path).contentType(MediaType.APPLICATION_JSON).content(json);

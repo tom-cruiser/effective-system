@@ -1,96 +1,78 @@
 package bi.gravy.ledger.transaction;
 
-import bi.gravy.ledger.account.Account;
-import bi.gravy.ledger.account.AccountService;
-import bi.gravy.ledger.account.SystemAccount;
-import bi.gravy.ledger.common.Money;
 import bi.gravy.ledger.common.errors.ErrorCode;
 import bi.gravy.ledger.common.errors.LedgerException;
 import bi.gravy.ledger.common.idempotency.RequestHasher;
+import bi.gravy.ledger.transaction.dto.PayoutRequest;
+import bi.gravy.ledger.transaction.dto.ReversalRequest;
+import bi.gravy.ledger.transaction.dto.RidePaymentRequest;
 import bi.gravy.ledger.transaction.dto.TopUpRequest;
 import bi.gravy.ledger.transaction.dto.TransferRequest;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The money-moving business flows. Each one runs in a single database transaction: lock the
- * accounts, check flow-specific rules, describe the postings, and hand them to the {@link
- * PostingEngine}. If anything throws, the whole transaction rolls back and nothing is written.
+ * Entry point for every money movement. Wraps each {@link TransactionFlows} call with idempotency
+ * (ADR 0004): a request whose {@code Idempotency-Key} was already used returns the original
+ * transaction if the body is the same, or fails with IDEMPOTENCY_CONFLICT if it is not.
  */
 @Service
 public class TransactionService {
 
-  private final PostingEngine engine;
-  private final AccountService accountService;
+  private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
+
+  private final TransactionFlows flows;
   private final LedgerTransactionRepository transactions;
   private final PostingRepository postings;
   private final RequestHasher hasher;
 
-  public TransactionService(
-      PostingEngine engine,
-      AccountService accountService,
+  TransactionService(
+      TransactionFlows flows,
       LedgerTransactionRepository transactions,
       PostingRepository postings,
       RequestHasher hasher) {
-    this.engine = engine;
-    this.accountService = accountService;
+    this.flows = flows;
     this.transactions = transactions;
     this.postings = postings;
     this.hasher = hasher;
   }
 
-  /** Mobile money arrives: debit TOPUP_CLEARING, credit the wallet. */
-  @Transactional
   public PostedTransaction topUp(TopUpRequest request, String idempotencyKey) {
-    Money amount = Money.of(request.amountMinor(), request.currency());
-    UUID clearingId =
-        accountService.systemAccountId(SystemAccount.TOPUP_CLEARING, amount.currency());
-
-    LockedAccounts locked = engine.lockAccounts(List.of(clearingId, request.accountId()));
-    requireWallet(locked.get(request.accountId()));
-
-    return engine.post(
-        new JournalEntry(
-            TransactionType.TOP_UP,
-            idempotencyKey,
-            hasher.hash("top-up", request),
-            request.description(),
-            request.externalReference(),
-            null,
-            List.of(
-                PostingLine.debit(clearingId, amount),
-                PostingLine.credit(request.accountId(), amount))),
-        locked);
+    return idempotent(
+        "top-up", request, idempotencyKey, hash -> flows.topUp(request, idempotencyKey, hash));
   }
 
-  /** Wallet to wallet: debit the sender, credit the receiver. */
-  @Transactional
   public PostedTransaction transfer(TransferRequest request, String idempotencyKey) {
-    if (request.fromAccountId().equals(request.toAccountId())) {
-      throw new LedgerException(
-          ErrorCode.SAME_ACCOUNT_TRANSFER, "Source and destination accounts must differ");
-    }
-    Money amount = Money.of(request.amountMinor(), request.currency());
+    return idempotent(
+        "transfer", request, idempotencyKey, hash -> flows.transfer(request, idempotencyKey, hash));
+  }
 
-    LockedAccounts locked =
-        engine.lockAccounts(List.of(request.fromAccountId(), request.toAccountId()));
-    requireWallet(locked.get(request.fromAccountId()));
-    requireWallet(locked.get(request.toAccountId()));
+  public PostedTransaction ridePayment(RidePaymentRequest request, String idempotencyKey) {
+    return idempotent(
+        "ride-payment",
+        request,
+        idempotencyKey,
+        hash -> flows.ridePayment(request, idempotencyKey, hash));
+  }
 
-    return engine.post(
-        new JournalEntry(
-            TransactionType.TRANSFER,
-            idempotencyKey,
-            hasher.hash("transfer", request),
-            request.description(),
-            null,
-            null,
-            List.of(
-                PostingLine.debit(request.fromAccountId(), amount),
-                PostingLine.credit(request.toAccountId(), amount))),
-        locked);
+  public PostedTransaction payout(PayoutRequest request, String idempotencyKey) {
+    return idempotent(
+        "payout", request, idempotencyKey, hash -> flows.payout(request, idempotencyKey, hash));
+  }
+
+  public PostedTransaction reverse(
+      UUID transactionId, ReversalRequest request, String idempotencyKey) {
+    return idempotent(
+        "reversal:" + transactionId,
+        request,
+        idempotencyKey,
+        hash -> flows.reverse(transactionId, request, idempotencyKey, hash));
   }
 
   @Transactional(readOnly = true)
@@ -98,18 +80,48 @@ public class TransactionService {
     LedgerTransaction transaction =
         transactions
             .findById(transactionId)
-            .orElseThrow(() ->
-                new LedgerException(
-                    ErrorCode.TRANSACTION_NOT_FOUND,
-                    "Transaction %s not found".formatted(transactionId)));
+            .orElseThrow(() -> TransactionFlows.transactionNotFound(transactionId));
     return new PostedTransaction(
         transaction, postings.findByTransactionIdOrderByEntrySeq(transactionId));
   }
 
-  /** System accounts are only touched by the flows themselves, never named by a client. */
-  private static void requireWallet(Account account) {
-    if (!account.isWallet()) {
-      throw LedgerException.validation("Account %s is not a wallet".formatted(account.getId()));
+  /**
+   * Runs {@code flow} unless this key has been used before.
+   *
+   * <p>The first lookup handles ordinary retries. Two identical requests can still arrive at the
+   * same moment and both miss it; then one of them fails, either on the UNIQUE(idempotency_key)
+   * constraint or on a business rule (e.g. the first one already spent the money). Looking the key
+   * up again turns that failure into the first request's result.
+   */
+  private PostedTransaction idempotent(
+      String operation,
+      Object request,
+      String idempotencyKey,
+      Function<String, PostedTransaction> flow) {
+    String hash = hasher.hash(operation, request);
+    Optional<PostedTransaction> previous = findPrevious(idempotencyKey, hash);
+    if (previous.isPresent()) {
+      return previous.get();
     }
+    try {
+      return flow.apply(hash);
+    } catch (DataIntegrityViolationException | LedgerException e) {
+      return findPrevious(idempotencyKey, hash).orElseThrow(() -> e);
+    }
+  }
+
+  private Optional<PostedTransaction> findPrevious(String idempotencyKey, String hash) {
+    return transactions
+        .findByIdempotencyKey(idempotencyKey)
+        .map(existing -> {
+          if (!existing.getRequestHash().equals(hash)) {
+            throw new LedgerException(
+                ErrorCode.IDEMPOTENCY_CONFLICT,
+                "Idempotency-Key was already used for a different request");
+          }
+          log.info("Idempotent replay of transaction {}", existing.getId());
+          return new PostedTransaction(
+              existing, postings.findByTransactionIdOrderByEntrySeq(existing.getId()), true);
+        });
   }
 }
