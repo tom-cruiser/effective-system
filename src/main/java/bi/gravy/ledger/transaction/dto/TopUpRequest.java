@@ -10,7 +10,9 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 public record TopUpRequest(
-    @NotNull @Schema(description = "Wallet to credit") UUID accountId,
+    @NotNull
+        @Schema(description = "Wallet to credit", example = "0b6f1c1e-6a52-4c3e-9a51-2f1d8d7c4a10")
+        UUID accountId,
     @Positive @Schema(description = "Amount in minor units", example = "20000") long amountMinor,
     @NotNull @Pattern(regexp = Money.CURRENCY_PATTERN) @Schema(example = "BIF") String currency,
     @NotBlank

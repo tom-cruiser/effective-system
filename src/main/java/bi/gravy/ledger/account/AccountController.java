@@ -1,10 +1,15 @@
 package bi.gravy.ledger.account;
 
+import static bi.gravy.ledger.common.errors.ErrorCode.ACCESS_DENIED;
+import static bi.gravy.ledger.common.errors.ErrorCode.ACCOUNT_NOT_FOUND;
+
 import bi.gravy.ledger.account.dto.AccountResponse;
 import bi.gravy.ledger.account.dto.CreateAccountRequest;
+import bi.gravy.ledger.common.errors.ApiErrors;
 import bi.gravy.ledger.security.AccessGuard;
 import bi.gravy.ledger.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -33,6 +38,8 @@ public class AccountController {
 
   @PostMapping
   @Operation(summary = "Create a rider or driver wallet")
+  @ApiResponse(responseCode = "201", description = "Created")
+  @ApiErrors({ACCESS_DENIED})
   public ResponseEntity<AccountResponse> create(@Valid @RequestBody CreateAccountRequest request) {
     Account account = accountService.create(request, accessGuard.resolveOwner(request.ownerId()));
     return ResponseEntity.created(URI.create("/api/v1/accounts/" + account.getId()))
@@ -50,6 +57,7 @@ public class AccountController {
 
   @GetMapping("/{id}")
   @Operation(summary = "Get an account and its current balance")
+  @ApiErrors({ACCESS_DENIED, ACCOUNT_NOT_FOUND})
   public AccountResponse get(@PathVariable UUID id) {
     accessGuard.requireAccountAccess(id);
     return AccountResponse.from(accountService.get(id));

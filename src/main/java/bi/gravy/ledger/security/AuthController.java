@@ -1,5 +1,8 @@
 package bi.gravy.ledger.security;
 
+import static bi.gravy.ledger.common.errors.ErrorCode.INVALID_CREDENTIALS;
+
+import bi.gravy.ledger.common.errors.ApiErrors;
 import bi.gravy.ledger.security.TokenService.IssuedToken;
 import bi.gravy.ledger.security.dto.LoginRequest;
 import bi.gravy.ledger.security.dto.TokenResponse;
@@ -26,6 +29,7 @@ public class AuthController {
   @PostMapping("/login")
   @SecurityRequirements // no token needed to get a token
   @Operation(summary = "Exchange email and password for a JWT access token")
+  @ApiErrors({INVALID_CREDENTIALS})
   public TokenResponse login(@Valid @RequestBody LoginRequest request) {
     IssuedToken token = authService.login(request.email(), request.password());
     return TokenResponse.bearer(token.value(), token.expiresInSeconds());

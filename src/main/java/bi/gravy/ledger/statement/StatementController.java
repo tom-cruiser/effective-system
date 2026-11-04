@@ -1,5 +1,9 @@
 package bi.gravy.ledger.statement;
 
+import static bi.gravy.ledger.common.errors.ErrorCode.ACCESS_DENIED;
+import static bi.gravy.ledger.common.errors.ErrorCode.ACCOUNT_NOT_FOUND;
+
+import bi.gravy.ledger.common.errors.ApiErrors;
 import bi.gravy.ledger.security.AccessGuard;
 import bi.gravy.ledger.statement.dto.StatementResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +37,7 @@ public class StatementController {
   @Operation(
       summary = "Account statement",
       description = "Postings newest first, each with the account balance right after it.")
+  @ApiErrors({ACCESS_DENIED, ACCOUNT_NOT_FOUND})
   public StatementResponse statement(
       @PathVariable UUID id,
       @RequestParam(defaultValue = "0") @Min(0) int page,

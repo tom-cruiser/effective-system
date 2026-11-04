@@ -9,7 +9,11 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 public record PayoutRequest(
-    @NotNull @Schema(description = "The driver's DRIVER_WALLET") UUID driverAccountId,
+    @NotNull
+        @Schema(
+            description = "The driver's DRIVER_WALLET",
+            example = "7d2e9c4b-1f3a-4b6d-8e2c-5a9f0b3d6e21")
+        UUID driverAccountId,
     @Positive @Schema(description = "Amount in minor units", example = "8500") long amountMinor,
     @NotNull @Pattern(regexp = Money.CURRENCY_PATTERN) @Schema(example = "BIF") String currency,
     @Size(max = 100)

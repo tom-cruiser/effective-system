@@ -1,5 +1,8 @@
 package bi.gravy.ledger.reconciliation;
 
+import static bi.gravy.ledger.common.errors.ErrorCode.ACCESS_DENIED;
+
+import bi.gravy.ledger.common.errors.ApiErrors;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +26,7 @@ public class ReconciliationController {
       description =
           "Verifies that debits equal credits per currency and per transaction, and that every"
               + " cached balance equals the balance derived from postings.")
+  @ApiErrors({ACCESS_DENIED})
   public ReconciliationReport reconcile() {
     return reconciliationService.reconcile();
   }

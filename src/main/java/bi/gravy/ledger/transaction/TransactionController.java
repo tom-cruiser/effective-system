@@ -1,5 +1,16 @@
 package bi.gravy.ledger.transaction;
 
+import static bi.gravy.ledger.common.errors.ErrorCode.ACCESS_DENIED;
+import static bi.gravy.ledger.common.errors.ErrorCode.ACCOUNT_FROZEN;
+import static bi.gravy.ledger.common.errors.ErrorCode.ACCOUNT_NOT_FOUND;
+import static bi.gravy.ledger.common.errors.ErrorCode.ALREADY_REVERSED;
+import static bi.gravy.ledger.common.errors.ErrorCode.CURRENCY_MISMATCH;
+import static bi.gravy.ledger.common.errors.ErrorCode.IDEMPOTENCY_CONFLICT;
+import static bi.gravy.ledger.common.errors.ErrorCode.INSUFFICIENT_FUNDS;
+import static bi.gravy.ledger.common.errors.ErrorCode.SAME_ACCOUNT_TRANSFER;
+import static bi.gravy.ledger.common.errors.ErrorCode.TRANSACTION_NOT_FOUND;
+
+import bi.gravy.ledger.common.errors.ApiErrors;
 import bi.gravy.ledger.common.idempotency.IdempotencyKeys;
 import bi.gravy.ledger.security.AccessGuard;
 import bi.gravy.ledger.transaction.dto.PayoutRequest;
@@ -10,6 +21,7 @@ import bi.gravy.ledger.transaction.dto.TransactionResponse;
 import bi.gravy.ledger.transaction.dto.TransferRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -42,6 +54,18 @@ public class TransactionController {
 
   @PostMapping("/top-ups")
   @Operation(summary = "Credit a wallet with money received through mobile money")
+  @ApiResponse(responseCode = "201", description = "Posted")
+  @ApiResponse(
+      responseCode = "200",
+      description =
+          "Replay: same Idempotency-Key and body as an earlier request, which is returned")
+  @ApiErrors({
+    ACCESS_DENIED,
+    ACCOUNT_NOT_FOUND,
+    ACCOUNT_FROZEN,
+    CURRENCY_MISMATCH,
+    IDEMPOTENCY_CONFLICT
+  })
   public ResponseEntity<TransactionResponse> topUp(
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
           String idempotencyKey,
@@ -52,6 +76,20 @@ public class TransactionController {
 
   @PostMapping("/transfers")
   @Operation(summary = "Move money from one wallet to another")
+  @ApiResponse(responseCode = "201", description = "Posted")
+  @ApiResponse(
+      responseCode = "200",
+      description =
+          "Replay: same Idempotency-Key and body as an earlier request, which is returned")
+  @ApiErrors({
+    ACCESS_DENIED,
+    ACCOUNT_NOT_FOUND,
+    ACCOUNT_FROZEN,
+    CURRENCY_MISMATCH,
+    INSUFFICIENT_FUNDS,
+    SAME_ACCOUNT_TRANSFER,
+    IDEMPOTENCY_CONFLICT
+  })
   public ResponseEntity<TransactionResponse> transfer(
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
           String idempotencyKey,
@@ -69,6 +107,19 @@ public class TransactionController {
           "Debits the rider for the full fare, credits the driver with the fare minus the platform"
               + " fee and credits PLATFORM_FEES with the fee (ledger.platform-fee-bps, rounded"
               + " down).")
+  @ApiResponse(responseCode = "201", description = "Posted")
+  @ApiResponse(
+      responseCode = "200",
+      description =
+          "Replay: same Idempotency-Key and body as an earlier request, which is returned")
+  @ApiErrors({
+    ACCESS_DENIED,
+    ACCOUNT_NOT_FOUND,
+    ACCOUNT_FROZEN,
+    CURRENCY_MISMATCH,
+    INSUFFICIENT_FUNDS,
+    IDEMPOTENCY_CONFLICT
+  })
   public ResponseEntity<TransactionResponse> ridePayment(
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
           String idempotencyKey,
@@ -80,6 +131,19 @@ public class TransactionController {
 
   @PostMapping("/payouts")
   @Operation(summary = "Pay a driver out to mobile money")
+  @ApiResponse(responseCode = "201", description = "Posted")
+  @ApiResponse(
+      responseCode = "200",
+      description =
+          "Replay: same Idempotency-Key and body as an earlier request, which is returned")
+  @ApiErrors({
+    ACCESS_DENIED,
+    ACCOUNT_NOT_FOUND,
+    ACCOUNT_FROZEN,
+    CURRENCY_MISMATCH,
+    INSUFFICIENT_FUNDS,
+    IDEMPOTENCY_CONFLICT
+  })
   public ResponseEntity<TransactionResponse> payout(
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
           String idempotencyKey,
@@ -93,6 +157,19 @@ public class TransactionController {
   @Operation(
       summary = "Reverse a transaction (ADMIN only)",
       description = "Posts the exact opposite entries. A transaction can be reversed only once.")
+  @ApiResponse(responseCode = "201", description = "Posted")
+  @ApiResponse(
+      responseCode = "200",
+      description =
+          "Replay: same Idempotency-Key and body as an earlier request, which is returned")
+  @ApiErrors({
+    ACCESS_DENIED,
+    TRANSACTION_NOT_FOUND,
+    ALREADY_REVERSED,
+    INSUFFICIENT_FUNDS,
+    ACCOUNT_FROZEN,
+    IDEMPOTENCY_CONFLICT
+  })
   public ResponseEntity<TransactionResponse> reverse(
       @PathVariable UUID id,
       @Parameter(description = IDEMPOTENCY_KEY_DOC) @RequestHeader(IdempotencyKeys.HEADER)
@@ -104,6 +181,7 @@ public class TransactionController {
 
   @GetMapping("/{id}")
   @Operation(summary = "Get a transaction and its postings")
+  @ApiErrors({ACCESS_DENIED, TRANSACTION_NOT_FOUND})
   public TransactionResponse get(@PathVariable UUID id) {
     PostedTransaction posted = transactionService.get(id);
     accessGuard.requireAnyAccountAccess(

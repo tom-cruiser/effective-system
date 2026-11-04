@@ -35,6 +35,8 @@ management:
         enabled: true
 
 springdoc:
+  # Responses are JSON; without this springdoc documents them as */*.
+  default-produces-media-type: application/json
   swagger-ui:
     path: /swagger-ui.html
   api-docs:
