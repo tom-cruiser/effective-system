@@ -143,6 +143,33 @@
               <goal>report</goal>
             </goals>
           </execution>
+          <!-- Fail the build if a core package drops below 80% line coverage. -->
+          <execution>
+            <id>check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <rule>
+                  <element>PACKAGE</element>
+                  <includes>
+                    <include>bi.gravy.ledger.account*</include>
+                    <include>bi.gravy.ledger.transaction*</include>
+                    <include>bi.gravy.ledger.common*</include>
+                  </includes>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.80</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
 

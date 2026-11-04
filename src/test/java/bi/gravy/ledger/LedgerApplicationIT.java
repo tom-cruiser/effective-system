@@ -1,31 +1,20 @@
 package bi.gravy.ledger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import bi.gravy.ledger.support.IntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-class LedgerApplicationIT {
-
-  @Autowired private TestRestTemplate http;
-  @Autowired private JdbcTemplate jdbc;
+class LedgerApplicationIT extends IntegrationTest {
 
   @Test
-  void healthEndpointReportsUp() {
-    ResponseEntity<String> response = http.getForEntity("/actuator/health", String.class);
-
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).contains("\"status\":\"UP\"");
+  void healthEndpointReportsUp() throws Exception {
+    mvc.perform(get("/actuator/health"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("UP"));
   }
 
   @Test
@@ -34,5 +23,12 @@ class LedgerApplicationIT {
         jdbc.queryForObject("SELECT count(*) FROM accounts WHERE type = 'SYSTEM'", Integer.class);
 
     assertThat(count).isEqualTo(3 * 4);
+  }
+
+  @Test
+  void openApiDocumentIsServed() throws Exception {
+    mvc.perform(get("/v3/api-docs"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.paths['/api/v1/transactions/transfers']").exists());
   }
 }
