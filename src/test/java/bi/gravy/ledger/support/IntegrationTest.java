@@ -153,6 +153,14 @@ public abstract class IntegrationTest {
         currency);
   }
 
+  /** Lowest balance the account ever had, according to its postings' running balances. */
+  protected long lowestBalanceEver(UUID accountId) {
+    return jdbc.queryForObject(
+        "SELECT COALESCE(MIN(balance_after_minor), 0) FROM postings WHERE account_id = ?",
+        Long.class,
+        accountId);
+  }
+
   protected void freeze(UUID accountId) {
     jdbc.update("UPDATE accounts SET status = 'FROZEN' WHERE id = ?", accountId);
   }

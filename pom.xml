@@ -159,6 +159,7 @@
                     <include>bi.gravy.ledger.transaction*</include>
                     <include>bi.gravy.ledger.common*</include>
                     <include>bi.gravy.ledger.statement*</include>
+                    <include>bi.gravy.ledger.reconciliation*</include>
                   </includes>
                   <limits>
                     <limit>
