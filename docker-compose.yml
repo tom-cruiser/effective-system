@@ -1,0 +1,34 @@
+# Local development stack: PostgreSQL 16 + the ledger API.
+# Every value below is a local-only default and can be overridden from the environment or a .env file.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ledger
+      POSTGRES_USER: ${DB_USERNAME:-ledger}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ledger}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - ledger-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/ledger
+      DB_USERNAME: ${DB_USERNAME:-ledger}
+      DB_PASSWORD: ${DB_PASSWORD:-ledger}
+      LEDGER_PLATFORM_FEE_BPS: ${LEDGER_PLATFORM_FEE_BPS:-1500}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+
+volumes:
+  ledger-db:

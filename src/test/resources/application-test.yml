@@ -1,0 +1,5 @@
+# The datasource is provided by Testcontainers (@ServiceConnection), so nothing DB-specific here.
+logging:
+  level:
+    org.testcontainers: INFO
+    bi.gravy.ledger: DEBUG
