@@ -1,6 +1,6 @@
 # wallet-ledger-api
 
-[![CI](https://github.com/tom-cruiser/wallet-ledger-api/actions/workflows/ci.yml/badge.svg)](https://github.com/tom-cruiser/wallet-ledger-api/actions/workflows/ci.yml)
+[![CI](https://github.com/tom-cruiser/effective-system/actions/workflows/ci.yml/badge.svg)](https://github.com/tom-cruiser/effective-system/actions/workflows/ci.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-blue)
 ![Spring Boot 3.5](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791)
